@@ -32,7 +32,7 @@ A powerful wallet recovery tool designed to help users recover lost or compromis
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/chuckyLeeVIII/Fort-knox-Recovery-tool-the-last-recovery-tool-you-will-need-...
    cd fort-knox-recovery
    ```
 
