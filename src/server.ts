@@ -1,5 +1,12 @@
 import express from 'express';
 import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import fs from 'fs/promises';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 const app = express();
 app.use(express.json());
 
@@ -7,14 +14,14 @@ app.post('/api/recover', async (req, res) => {
   try {
     const { input } = req.body;
     
-    // Run the Python script passing '-' to read from stdin
-    const pythonProcess = spawn('python3', ['wallet_recovery.py', '-'], {
+    // Create a temporary file with the input data
+    const tempFile = join(__dirname, 'temp_wallet_data.txt');
+    await fs.writeFile(tempFile, input);
+
+    // Run the Python script
+    const pythonProcess = spawn('python3', ['wallet_recovery.py', tempFile], {
       cwd: process.cwd()
     });
-
-    // Write input to stdin
-    pythonProcess.stdin.write(input);
-    pythonProcess.stdin.end();
 
     let output = '';
     let errorOutput = '';
@@ -28,6 +35,13 @@ app.post('/api/recover', async (req, res) => {
     });
 
     pythonProcess.on('close', async (code) => {
+      // Clean up temp file
+      try {
+        await fs.unlink(tempFile);
+      } catch (err) {
+        console.error('Error cleaning up temp file:', err);
+      }
+
       if (code !== 0) {
         console.error('Python script error:', errorOutput);
         return res.status(500).json({ error: 'Wallet recovery script failed' });
