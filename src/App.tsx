@@ -26,7 +26,7 @@ function App() {
   const [metadata, setMetadata] = useState<RecoveryMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showTagline] = useState(true);
+  const [showTagline, setShowTagline] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
