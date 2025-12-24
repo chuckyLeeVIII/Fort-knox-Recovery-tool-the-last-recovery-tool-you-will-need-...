@@ -76,12 +76,15 @@ class WalletDecryptor:
 
     @staticmethod
     def extract_wallet_params(filename: str) -> WalletParams:
-        """Extract wallet parameters from input file"""
+        """Extract wallet parameters from input file or stdin"""
         params = WalletParams()
         
         try:
-            with open(filename, 'rb') as f:
-                raw_data = f.read()
+            if filename == '-':
+                raw_data = sys.stdin.buffer.read()
+            else:
+                with open(filename, 'rb') as f:
+                    raw_data = f.read()
                 
             # Try multiple encodings
             for encoding in ['utf-8', 'latin-1', 'ascii', 'utf-16']:
@@ -377,7 +380,7 @@ def main():
         return
         
     filename = sys.argv[1]
-    if not os.path.exists(filename):
+    if filename != '-' and not os.path.exists(filename):
         print(f"Error: File not found: {filename}")
         return
         
