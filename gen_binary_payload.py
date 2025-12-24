@@ -1,0 +1,8 @@
+import json
+
+# Create a payload with mixed content
+payload_content = "BinaryHeader\u0000\u00ff\nsalt: abcdef1234567890\niter: 1000\niv: 1234567890abcdef\nct: deadbeefdeadbeef\npassword: binary_test\nFooter\u00de\u00ad"
+
+print(json.dumps({
+    "input": payload_content
+}))
