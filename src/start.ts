@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 
 // Start the Express server
-const server = spawn('npm', ['run', 'server'], { 
+const server = spawn('pnpm', ['run', 'server'], {
   stdio: 'inherit',
   env: { ...process.env, PORT: '3001' }
 });
@@ -14,7 +14,7 @@ server.on('error', (err) => {
 
 // Give the server a moment to start
 setTimeout(async () => {
-  const vite = spawn('npm', ['run', 'dev'], { 
+  const vite = spawn('pnpm', ['run', 'dev'], {
     stdio: 'inherit',
     env: { ...process.env }
   });
