@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "ts-node --esm src/start.ts",
     "server": "ts-node --esm src/server.ts",
     "build": "vite build",
     "lint": "eslint .",
