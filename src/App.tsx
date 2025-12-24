@@ -81,8 +81,10 @@ function App() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
-            <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-500" />
+            <label htmlFor="recovery-input" className="sr-only">Wallet Recovery Information</label>
+            <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-500" aria-hidden="true" />
             <textarea
+              id="recovery-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Enter wallet recovery information..."
@@ -191,7 +193,7 @@ function App() {
         )}
       </div>
       <footer className="fixed bottom-0 left-0 right-0 bg-red-950 text-center py-2 text-sm text-red-200">
-        <p>The Ex-Presidents - we treat your money like its ours even if some other dumbasss lost it ...</p>
+        <p>The Ex-Presidents - we treat your money like its ours even if some other dumbass lost it ...</p>
       </footer>
     </div>
   );
