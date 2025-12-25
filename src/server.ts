@@ -1,7 +1,16 @@
 import express from 'express';
 import { spawn } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 app.use(express.json());
+
+// Serve static files from the dist directory
+app.use(express.static(path.join(__dirname, '../dist')));
 
 app.post('/api/recover', async (req, res) => {
   try {
@@ -88,6 +97,11 @@ app.post('/api/recover', async (req, res) => {
     console.error('Recovery error:', error);
     res.status(500).json({ error: 'Failed to process wallet recovery' });
   }
+});
+
+// Handle any other requests by serving the index.html file
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 const port = process.env.PORT || 3001;
