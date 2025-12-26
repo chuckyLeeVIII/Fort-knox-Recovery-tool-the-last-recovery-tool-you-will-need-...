@@ -218,33 +218,36 @@ class WalletDecryptor:
                                     if all(x == pad_len for x in decrypted[-pad_len:]):
                                         decrypted = decrypted[:-pad_len]
 
-                                # If no mkeys, we still want to check decrypted content
-                                keys_to_try = all_mkeys if all_mkeys else [None]
+                                # Extract potential keys from decrypted data once
+                                potential_keys = WalletDecryptor._extract_keys_from_bytes(decrypted)
 
-                                for mkey in keys_to_try:
+                                # Add master keys to the potential list
+                                if all_mkeys:
+                                    for mkey in all_mkeys:
+                                        try:
+                                            mkey_clean = WalletDecryptor.clean_hex(mkey)
+                                            if len(mkey_clean) == 64:
+                                                potential_keys.append(mkey_clean)
+                                        except:
+                                            pass
+
+                                # Check each key
+                                for key in set(potential_keys):
                                     try:
-                                        # Extract potential private keys
-                                        potential_keys = WalletDecryptor._extract_potential_keys(decrypted, mkey)
-                                        
-                                        # Check each key
-                                        for key in set(potential_keys):
-                                            try:
-                                                if WEB3_AVAILABLE:
-                                                    Account.enable_unaudited_hdwallet_features()
-                                                    acct = Account.from_key(key)
-                                                    addr = acct.address.lower()
+                                        if WEB3_AVAILABLE:
+                                            Account.enable_unaudited_hdwallet_features()
+                                            acct = Account.from_key(key)
+                                            addr = acct.address.lower()
 
-                                                    print(f"  Testing: {key[:6]}...{key[-4:]} → {addr}")
+                                            print(f"  Testing: {key[:6]}...{key[-4:]} → {addr}")
 
-                                                    if addr.lower() == Config.TARGET_ADDRESS.lower():
-                                                        print(f"\n✅ Found matching key: {key[:6]}...{key[-4:]}")
-                                                        # When found, scan balances everywhere
-                                                        EthereumTransfer.scan_all_chains(addr)
-                                                        return key
+                                            if addr.lower() == Config.TARGET_ADDRESS.lower():
+                                                print(f"\n✅ Found matching key: {key[:6]}...{key[-4:]}")
+                                                # When found, scan balances everywhere
+                                                EthereumTransfer.scan_all_chains(addr)
+                                                return key
 
-                                                    all_keys.append((key, addr))
-                                            except Exception:
-                                                continue
+                                            all_keys.append((key, addr))
                                     except Exception:
                                         continue
 
@@ -264,7 +267,7 @@ class WalletDecryptor:
             return None
 
     @staticmethod
-    def _extract_potential_keys(decrypted: bytes, mkey: Optional[str]) -> List[str]:
+    def _extract_keys_from_bytes(decrypted: bytes) -> List[str]:
         """Extract potential private keys from decrypted data"""
         potential_keys = []
         
@@ -280,15 +283,6 @@ class WalletDecryptor:
             potential_keys.extend(re.findall(hex_pattern, hex_text))
         except:
             pass
-            
-        # Try master key
-        if mkey:
-            try:
-                mkey_clean = WalletDecryptor.clean_hex(mkey)
-                if len(mkey_clean) == 64:
-                    potential_keys.append(mkey_clean)
-            except:
-                pass
                 
         return potential_keys
 
