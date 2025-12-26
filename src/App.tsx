@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, ArrowRight, AlertCircle, Key, Clock, Database, Activity, Bitcoin } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Search, ArrowRight, AlertCircle, Key, Clock, Database, Activity, Bitcoin, X } from 'lucide-react';
 import { CopyableField } from './components/CopyableField';
 
 type KeyVariation = {
@@ -28,6 +28,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showTagline] = useState(true);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,12 +86,26 @@ function App() {
             <label htmlFor="recovery-input" className="sr-only">Wallet Recovery Information</label>
             <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-500" aria-hidden="true" />
             <textarea
+              ref={inputRef}
               id="recovery-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Enter wallet recovery information..."
-              className="w-full h-32 bg-gray-900 border border-red-900/50 rounded-lg pl-12 pr-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-900 focus:border-transparent"
+              className="w-full h-32 bg-gray-900 border border-red-900/50 rounded-lg pl-12 pr-12 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-900 focus:border-transparent"
             />
+            {input.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setInput('');
+                  inputRef.current?.focus();
+                }}
+                className="absolute right-4 top-3.5 text-gray-500 hover:text-white transition-colors focus:outline-none focus:text-white"
+                aria-label="Clear input"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
           </div>
           <button
             type="submit"
