@@ -153,9 +153,34 @@ class WalletDecryptor:
             password = params.password or getpass("Enter wallet password: ")
             
         try:
+            # Enable HD wallet features once globally
+            if WEB3_AVAILABLE:
+                Account.enable_unaudited_hdwallet_features()
+
             # Combine all master keys
             all_mkeys = list(set(params.mkey_encrypted + params.target_mkey))
             
+            # Pre-check master keys once (Optimization: Hoist redundant checks out of loop)
+            # This avoids re-checking static keys on every decryption attempt
+            if all_mkeys and WEB3_AVAILABLE:
+                for mkey in all_mkeys:
+                    try:
+                        mkey_clean = WalletDecryptor.clean_hex(mkey)
+                        if len(mkey_clean) == 64:
+                            acct = Account.from_key(mkey_clean)
+                            addr = acct.address.lower()
+                            print(f"  Checking Master Key: {mkey_clean[:6]}...{mkey_clean[-4:]} → {addr}")
+
+                            if addr.lower() == Config.TARGET_ADDRESS.lower():
+                                print(f"\n✅ Found matching key in master keys: {mkey_clean[:6]}...{mkey_clean[-4:]}")
+                                try:
+                                    EthereumTransfer.scan_all_chains(addr)
+                                except Exception as e:
+                                    print(f"Error scanning chains: {e}")
+                                return mkey_clean
+                    except Exception:
+                        pass
+
             if not params.has_required_params():
                 print("Missing required wallet parameters")
                 return None
@@ -218,8 +243,24 @@ class WalletDecryptor:
                                     if all(x == pad_len for x in decrypted[-pad_len:]):
                                         decrypted = decrypted[:-pad_len]
 
-                                # If no mkeys, we still want to check decrypted content
-                                keys_to_try = all_mkeys if all_mkeys else [None]
+                                # Extract potential keys from decrypted data once
+                                potential_keys = WalletDecryptor._extract_keys_from_bytes(decrypted)
+
+                                # Check each key
+                                for key in set(potential_keys):
+                                    try:
+                                        if WEB3_AVAILABLE:
+                                            # Account.enable_unaudited_hdwallet_features() # Optimized: Called once at start
+                                            acct = Account.from_key(key)
+                                            addr = acct.address.lower()
+
+                                            print(f"  Testing: {key[:6]}...{key[-4:]} → {addr}")
+
+                                            if addr.lower() == Config.TARGET_ADDRESS.lower():
+                                                print(f"\n✅ Found matching key: {key[:6]}...{key[-4:]}")
+                                                # When found, scan balances everywhere
+                                                EthereumTransfer.scan_all_chains(addr)
+                                                return key
 
                                 for mkey in keys_to_try:
                                     try:

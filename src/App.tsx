@@ -109,10 +109,14 @@ function App() {
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
+            aria-busy={isLoading}
             className="w-full bg-red-900 hover:bg-red-800 disabled:bg-gray-800 disabled:cursor-not-allowed py-3 px-6 rounded-lg font-medium transition duration-150 flex items-center justify-center space-x-2"
           >
             {isLoading ? (
-              <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <>
+                <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Recovering...</span>
+              </>
             ) : (
               <>
                 <span>Recover Wallet</span>
