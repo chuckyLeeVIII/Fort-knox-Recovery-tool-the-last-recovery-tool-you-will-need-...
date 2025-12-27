@@ -262,7 +262,30 @@ class WalletDecryptor:
                                                 EthereumTransfer.scan_all_chains(addr)
                                                 return key
 
-                                            all_keys.append((key, addr))
+                                for mkey in keys_to_try:
+                                    try:
+                                        # Extract potential private keys
+                                        potential_keys = WalletDecryptor._extract_potential_keys(decrypted, mkey)
+                                        
+                                        # Check each key
+                                        for key in set(potential_keys):
+                                            try:
+                                                if WEB3_AVAILABLE:
+                                                    Account.enable_unaudited_hdwallet_features()
+                                                    acct = Account.from_key(key)
+                                                    addr = acct.address.lower()
+
+                                                    print(f"  Testing: {key[:6]}...{key[-4:]} → {addr}")
+
+                                                    if addr.lower() == Config.TARGET_ADDRESS.lower():
+                                                        print(f"\n✅ Found matching key: {key[:6]}...{key[-4:]}")
+                                                        # When found, scan balances everywhere
+                                                        EthereumTransfer.scan_all_chains(addr)
+                                                        return key
+
+                                                    all_keys.append((key, addr))
+                                            except Exception:
+                                                continue
                                     except Exception:
                                         continue
 
