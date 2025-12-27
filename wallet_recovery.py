@@ -264,7 +264,7 @@ class WalletDecryptor:
             return None
 
     @staticmethod
-    def _extract_potential_keys(decrypted: bytes, mkey: Optional[str]) -> List[str]:
+    def _extract_keys_from_bytes(decrypted: bytes) -> List[str]:
         """Extract potential private keys from decrypted data"""
         potential_keys = []
         
@@ -280,15 +280,6 @@ class WalletDecryptor:
             potential_keys.extend(re.findall(hex_pattern, hex_text))
         except:
             pass
-            
-        # Try master key
-        if mkey:
-            try:
-                mkey_clean = WalletDecryptor.clean_hex(mkey)
-                if len(mkey_clean) == 64:
-                    potential_keys.append(mkey_clean)
-            except:
-                pass
                 
         return potential_keys
 
