@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "start": "ts-node --esm src/start.ts",
-    "server": "ts-node --esm src/server.ts",
+    "dev": "ts-node --esm src/start.ts",
+    "dev:frontend": "vite",
+    "dev:backend": "ts-node --esm src/server.ts",
+    "start": "ts-node --esm src/server.ts",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

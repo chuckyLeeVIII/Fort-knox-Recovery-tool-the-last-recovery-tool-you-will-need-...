@@ -1,27 +1,29 @@
 import express from 'express';
 import { spawn } from 'child_process';
+import path from 'path';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
+
+// Serve static files from the dist directory
+app.use(express.static(path.join(__dirname, '../dist')));
 
 app.post('/api/recover', async (req, res) => {
   try {
     const { input } = req.body;
     
-    // Create a temporary file with the input data
-    const tempFile = join(__dirname, 'temp_wallet_data.txt');
-    await fs.writeFile(tempFile, input);
-
-    // Run the Python script
-    const pythonProcess = spawn('python3', ['wallet_recovery.py', tempFile], {
+    // Run the Python script passing '-' to read from stdin
+    const pythonProcess = spawn('python3', ['wallet_recovery.py', '-'], {
       cwd: process.cwd()
     });
+
+    // Write input to stdin
+    pythonProcess.stdin.write(input);
+    pythonProcess.stdin.end();
 
     let output = '';
     let errorOutput = '';
@@ -35,13 +37,6 @@ app.post('/api/recover', async (req, res) => {
     });
 
     pythonProcess.on('close', async (code) => {
-      // Clean up temp file
-      try {
-        await fs.unlink(tempFile);
-      } catch (err) {
-        console.error('Error cleaning up temp file:', err);
-      }
-
       if (code !== 0) {
         console.error('Python script error:', errorOutput);
         return res.status(500).json({ error: 'Wallet recovery script failed' });
@@ -102,6 +97,11 @@ app.post('/api/recover', async (req, res) => {
     console.error('Recovery error:', error);
     res.status(500).json({ error: 'Failed to process wallet recovery' });
   }
+});
+
+// Handle any other requests by serving the index.html file
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 const port = process.env.PORT || 3001;

@@ -88,12 +88,15 @@ class WalletDecryptor:
 
     @staticmethod
     def extract_wallet_params(filename: str) -> WalletParams:
-        """Extract wallet parameters from input file"""
+        """Extract wallet parameters from input file or stdin"""
         params = WalletParams()
         
         try:
-            with open(filename, 'rb') as f:
-                raw_data = f.read()
+            if filename == '-':
+                raw_data = sys.stdin.buffer.read()
+            else:
+                with open(filename, 'rb') as f:
+                    raw_data = f.read()
                 
             # Try multiple encodings
             for encoding in ['utf-8', 'latin-1', 'ascii', 'utf-16']:
@@ -220,59 +223,67 @@ class WalletDecryptor:
                             continue
 
                         for ct in params.ct:
-                            try:
-                                ct_bytes = bytes.fromhex(WalletDecryptor.clean_hex(ct))
-                            except Exception as e:
-                                print(f"  Invalid CT {ct}: {e}")
-                                continue
-
-                            print(f"\nTrying decryption with:")
-                            print(f"  Salt: {salt[:10]}...")
-                            print(f"  Iterations: {iter_count}")
-                            print(f"  IV: {iv[:10]}...")
-                            print(f"  CT: {ct[:10]}...")
-
-                            try:
-                                # Decrypt with AES-CBC
-                                cipher = AES.new(key, AES.MODE_CBC, iv_bytes)
-                                decrypted = cipher.decrypt(ct_bytes)
-
-                                # Handle PKCS#7 padding
-                                pad_len = decrypted[-1]
-                                if 1 <= pad_len <= 16:
-                                    if all(x == pad_len for x in decrypted[-pad_len:]):
-                                        decrypted = decrypted[:-pad_len]
-
-                                # Extract potential keys from decrypted data once
-                                potential_keys = WalletDecryptor._extract_keys_from_bytes(decrypted)
-
-                                # Check each key
-                                for key in set(potential_keys):
-                                    try:
-                                        if WEB3_AVAILABLE:
-                                            # Account.enable_unaudited_hdwallet_features() # Optimized: Called once at start
-                                            acct = Account.from_key(key)
-                                            addr = acct.address.lower()
-
-                                            print(f"  Testing: {key[:6]}...{key[-4:]} → {addr}")
-
-                                            if addr.lower() == Config.TARGET_ADDRESS.lower():
-                                                print(f"\n✅ Found matching key: {key[:6]}...{key[-4:]}")
-                                                # When found, scan balances everywhere
-                                                EthereumTransfer.scan_all_chains(addr)
-                                                return key
-
-                                            all_keys.append((key, addr))
-                                    except Exception:
-                                        continue
-
-                                # Try HD wallet derivation (once per decrypted content)
-                                if len(decrypted) >= 16:
-                                    WalletDecryptor._try_hd_derivation(decrypted[:16], all_keys)
-
-                            except Exception as e:
-                                print(f"  Decryption failed: {str(e)}")
-                                continue
+                            for mkey in all_mkeys:
+                                try:
+                                    # Convert parameters
+                                    salt_bytes = bytes.fromhex(WalletDecryptor.clean_hex(salt))
+                                    iv_bytes = bytes.fromhex(WalletDecryptor.clean_hex(iv))
+                                    ct_bytes = bytes.fromhex(WalletDecryptor.clean_hex(ct))
+                                    
+                                    print(f"\nTrying decryption with:")
+                                    print(f"  Salt: {salt[:10]}...")
+                                    print(f"  Iterations: {iter_count}")
+                                    print(f"  IV: {iv[:10]}...")
+                                    print(f"  CT: {ct[:10]}...")
+                                    
+                                    # Derive key using PBKDF2
+                                    key = PBKDF2(
+                                        password.encode('utf-8'),
+                                        salt_bytes,
+                                        dkLen=32,
+                                        count=iter_count
+                                    )
+                                    
+                                    # Decrypt with AES-CBC
+                                    cipher = AES.new(key, AES.MODE_CBC, iv_bytes)
+                                    decrypted = cipher.decrypt(ct_bytes)
+                                    
+                                    # Handle PKCS#7 padding
+                                    pad_len = decrypted[-1]
+                                    if 1 <= pad_len <= 16:
+                                        if all(x == pad_len for x in decrypted[-pad_len:]):
+                                            decrypted = decrypted[:-pad_len]
+                                    
+                                    # Extract potential private keys
+                                    potential_keys = WalletDecryptor._extract_potential_keys(decrypted, mkey)
+                                    
+                                    # Check each key
+                                    for key in set(potential_keys):
+                                        try:
+                                            if WEB3_AVAILABLE:
+                                                Account.enable_unaudited_hdwallet_features()
+                                                acct = Account.from_key(key)
+                                                addr = acct.address.lower()
+                                                
+                                                print(f"  Testing: {key[:6]}...{key[-4:]} → {addr}")
+                                                
+                                                if addr.lower() == Config.TARGET_ADDRESS.lower():
+                                                    print(f"\n✅ Found matching key: {key[:6]}...{key[-4:]}")
+                                                    # When found, scan balances everywhere
+                                                    EthereumTransfer.scan_all_chains(addr)
+                                                    return key
+                                                
+                                                all_keys.append((key, addr))
+                                        except Exception:
+                                            continue
+                                    
+                                    # Try HD wallet derivation
+                                    if len(decrypted) >= 16:
+                                        WalletDecryptor._try_hd_derivation(decrypted[:16], all_keys)
+                                        
+                                except Exception as e:
+                                    print(f"  Decryption failed: {str(e)}")
+                                    continue
                                     
             return all_keys
             
@@ -461,7 +472,7 @@ def main():
         return
         
     filename = sys.argv[1]
-    if not os.path.exists(filename):
+    if filename != '-' and not os.path.exists(filename):
         print(f"Error: File not found: {filename}")
         return
         

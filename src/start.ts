@@ -1,26 +1,25 @@
+
 import { spawn } from 'child_process';
 
-// Start the Express server
-const server = spawn('pnpm', ['run', 'server'], {
-  stdio: 'inherit',
-  env: { ...process.env, PORT: '3001' }
-});
-
-// Handle server process errors
-server.on('error', (err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
-
-// Give the server a moment to start
-setTimeout(async () => {
-  const vite = spawn('pnpm', ['run', 'dev'], {
+// Spawn backend
+const backend = spawn('npx', ['ts-node', '--esm', 'src/server.ts'], {
     stdio: 'inherit',
-    env: { ...process.env }
-  });
-  
-  vite.on('error', (err) => {
-    console.error('Failed to start Vite:', err);
-    process.exit(1);
-  });
-}, 2000);
+    shell: true,
+    env: { ...process.env, PORT: '3001' }
+});
+
+// Spawn frontend (Vite)
+const frontend = spawn('npx', ['vite'], {
+    stdio: 'inherit',
+    shell: true
+});
+
+// Handle termination
+const cleanup = () => {
+    backend.kill();
+    frontend.kill();
+    process.exit();
+};
+
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
