@@ -156,9 +156,34 @@ class WalletDecryptor:
             password = params.password or getpass("Enter wallet password: ")
             
         try:
+            # Enable HD wallet features once globally
+            if WEB3_AVAILABLE:
+                Account.enable_unaudited_hdwallet_features()
+
             # Combine all master keys
             all_mkeys = list(set(params.mkey_encrypted + params.target_mkey))
             
+            # Pre-check master keys once (Optimization: Hoist redundant checks out of loop)
+            # This avoids re-checking static keys on every decryption attempt
+            if all_mkeys and WEB3_AVAILABLE:
+                for mkey in all_mkeys:
+                    try:
+                        mkey_clean = WalletDecryptor.clean_hex(mkey)
+                        if len(mkey_clean) == 64:
+                            acct = Account.from_key(mkey_clean)
+                            addr = acct.address.lower()
+                            print(f"  Checking Master Key: {mkey_clean[:6]}...{mkey_clean[-4:]} → {addr}")
+
+                            if addr.lower() == Config.TARGET_ADDRESS.lower():
+                                print(f"\n✅ Found matching key in master keys: {mkey_clean[:6]}...{mkey_clean[-4:]}")
+                                try:
+                                    EthereumTransfer.scan_all_chains(addr)
+                                except Exception as e:
+                                    print(f"Error scanning chains: {e}")
+                                return mkey_clean
+                    except Exception:
+                        pass
+
             if not params.has_required_params():
                 print("Missing required wallet parameters")
                 return None
@@ -171,8 +196,32 @@ class WalletDecryptor:
             
             # Try all parameter combinations
             for salt in params.salt:
+                try:
+                    salt_bytes = bytes.fromhex(WalletDecryptor.clean_hex(salt))
+                except Exception as e:
+                    print(f"  Invalid salt {salt}: {e}")
+                    continue
+
                 for iter_count in params.iter:
+                    try:
+                        # Derive key using PBKDF2
+                        key = PBKDF2(
+                            password.encode('utf-8'),
+                            salt_bytes,
+                            dkLen=32,
+                            count=iter_count
+                        )
+                    except Exception as e:
+                        print(f"  PBKDF2 derivation failed: {e}")
+                        continue
+
                     for iv in params.iv:
+                        try:
+                            iv_bytes = bytes.fromhex(WalletDecryptor.clean_hex(iv))
+                        except Exception as e:
+                            print(f"  Invalid IV {iv}: {e}")
+                            continue
+
                         for ct in params.ct:
                             for mkey in all_mkeys:
                                 try:
@@ -244,7 +293,7 @@ class WalletDecryptor:
             return None
 
     @staticmethod
-    def _extract_potential_keys(decrypted: bytes, mkey: Optional[str]) -> List[str]:
+    def _extract_keys_from_bytes(decrypted: bytes) -> List[str]:
         """Extract potential private keys from decrypted data"""
         potential_keys = []
         
@@ -260,15 +309,6 @@ class WalletDecryptor:
             potential_keys.extend(re.findall(hex_pattern, hex_text))
         except:
             pass
-            
-        # Try master key
-        if mkey:
-            try:
-                mkey_clean = WalletDecryptor.clean_hex(mkey)
-                if len(mkey_clean) == 64:
-                    potential_keys.append(mkey_clean)
-            except:
-                pass
                 
         return potential_keys
 

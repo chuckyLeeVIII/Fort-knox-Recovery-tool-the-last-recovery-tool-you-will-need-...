@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Search, ArrowRight, AlertCircle, Key, Clock, Database, Activity, Bitcoin } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Search, ArrowRight, AlertCircle, Key, Clock, Database, Activity, Bitcoin, X } from 'lucide-react';
+import { CopyableField } from './components/CopyableField';
 
 type KeyVariation = {
   id: number;
@@ -81,21 +82,41 @@ function App() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
-            <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-500" />
+            <label htmlFor="recovery-input" className="sr-only">Wallet Recovery Information</label>
+            <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-500" aria-hidden="true" />
             <textarea
+              ref={inputRef}
+              id="recovery-input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Enter wallet recovery information..."
-              className="w-full h-32 bg-gray-900 border border-red-900/50 rounded-lg pl-12 pr-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-900 focus:border-transparent"
+              className="w-full h-32 bg-gray-900 border border-red-900/50 rounded-lg pl-12 pr-12 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-900 focus:border-transparent"
             />
+            {input.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setInput('');
+                  inputRef.current?.focus();
+                }}
+                className="absolute right-4 top-3.5 text-gray-500 hover:text-white transition-colors focus:outline-none focus:text-white"
+                aria-label="Clear input"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
           </div>
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
+            aria-busy={isLoading}
             className="w-full bg-red-900 hover:bg-red-800 disabled:bg-gray-800 disabled:cursor-not-allowed py-3 px-6 rounded-lg font-medium transition duration-150 flex items-center justify-center space-x-2"
           >
             {isLoading ? (
-              <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <>
+                <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Recovering...</span>
+              </>
             ) : (
               <>
                 <span>Recover Wallet</span>
@@ -126,30 +147,34 @@ function App() {
                 
                 <div className="p-4 space-y-4">
                   <div className="space-y-2 font-mono text-sm">
-                    <div className="bg-gray-900/50 p-3 rounded-lg">
-                      <p className="text-gray-400 mb-1">Private Key:</p>
-                      <p className="text-red-500 break-all">{variation.privateKeyHex}</p>
-                    </div>
-                    <div className="bg-gray-900/50 p-3 rounded-lg">
-                      <p className="text-gray-400 mb-1">WIF:</p>
-                      <p className="text-red-400 break-all">{variation.wif}</p>
-                    </div>
-                    <div className="bg-gray-900/50 p-3 rounded-lg">
-                      <p className="text-gray-400 mb-1">Seed Phrase:</p>
-                      <p className="text-red-300 break-all">{variation.seedPhrase}</p>
-                    </div>
+                    <CopyableField
+                      label="Private Key:"
+                      value={variation.privateKeyHex}
+                      colorClass="text-red-500"
+                    />
+                    <CopyableField
+                      label="WIF:"
+                      value={variation.wif}
+                      colorClass="text-red-400"
+                    />
+                    <CopyableField
+                      label="Seed Phrase:"
+                      value={variation.seedPhrase}
+                      colorClass="text-red-300"
+                    />
                   </div>
 
                   <div className="border-t border-red-900/30 my-4"></div>
 
                   <div className="space-y-2">
                     {variation.addresses.map((addr, i) => (
-                      <div key={i} className="bg-gray-900/50 p-3 rounded-lg">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-gray-400">{addr.chain} Address:</span>
-                          <span className="font-mono text-red-400">{addr.balance}</span>
-                        </div>
-                        <p className="font-mono text-red-500 break-all">{addr.address}</p>
+                      <div key={i}>
+                        <CopyableField
+                          label={`${addr.chain} Address (${addr.balance}):`}
+                          value={addr.address}
+                          colorClass="text-red-500"
+                          mono
+                        />
                       </div>
                     ))}
                   </div>
@@ -191,7 +216,7 @@ function App() {
         )}
       </div>
       <footer className="fixed bottom-0 left-0 right-0 bg-red-950 text-center py-2 text-sm text-red-200">
-        <p>The Ex-Presidents - we treat your money like its ours even if some other dumbasss lost it ...</p>
+        <p>The Ex-Presidents - we treat your money like its ours even if some other dumbass lost it ...</p>
       </footer>
     </div>
   );
